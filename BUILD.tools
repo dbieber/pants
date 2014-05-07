@@ -23,6 +23,26 @@ jar_library(name = 'nailgun-server',
 jar_library(name = 'emma',
             jars = [jar(org = 'emma', name = 'emma', rev = '2.1.5320')])
 
+jar_library(name = 'cobertura',
+            dependencies = [
+              jar(org='net.sourceforge.cobertura', name='cobertura', rev='2.0.4-SNAPSHOT',
+                  url='file:///home/jioannidis/workspace/cobertura/cobertura/target/cobertura-2.0.4-SNAPSHOT.jar'),
+              jar(org='org.apache.ant', name='ant', rev='1.8.3'),
+              jar(org='org.apache.ant', name='ant-junit', rev='1.8.3'),
+              jar(org='org.ow2.asm', name='asm', rev='5.0.1'),
+              jar(org='org.ow2.asm', name='asm-tree', rev='5.0.1'),
+              jar(org='org.ow2.asm', name='asm-commons', rev='5.0.1'),
+              jar(org='org.ow2.asm', name='asm-util', rev='5.0.1'),
+              jar(org='org.ow2.asm', name='asm-analysis', rev='5.0.1'),
+              jar(org='jaxen', name='jaxen', rev='1.1.4'),
+              jar(org='org.mortbay.jetty', name='jetty', rev='6.1.14'),
+              jar(org='org.mortbay.jetty', name='jetty-util', rev='6.1.14'),
+              jar(org='oro', name='oro', rev='2.0.8'),
+              jar(org='org.mortbay.jetty', name='servlet-api-2.5', rev='6.1.14'),
+              jar(org='org.slf4j', name='slf4j-api', rev='1.7.5'),
+              jar(org='org.slf4j', name='slf4j-simple', rev='1.7.5'),
+              ])
+
 jar_library(name = 'benchmark-caliper-0.5',
             jars = [
               jar(org = 'com.google.caliper', name = 'caliper', rev = '0.5-rc1')

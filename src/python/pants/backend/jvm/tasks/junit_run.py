@@ -40,6 +40,8 @@ def _classfile_to_classname(cls):
   clsname, _ = os.path.splitext(cls.replace('/', '.'))
   return clsname
 
+def _classname_to_classfile(name):
+  return name.replace('.', '/') + '.class'
 
 class _JUnitRunner(object):
   """Helper class to run JUnit tests with or without coverage.
@@ -452,6 +454,62 @@ class Emma(_Coverage):
       binary_util.ui_open(self._coverage_html_file)
 
 
+class Cobertura(_Coverage):
+  """Class to run coverage tests with cobertura."""
+
+  def __init__(self, task_exports, context):
+    super(Cobertura, self).__init__(task_exports, context)
+    self._cobertura_bootstrap_key = 'cobertura'
+    task_exports.register_jvm_tool(self._cobertura_bootstrap_key,
+                             context.config.getlist('junit-run', 'cobertura-bootstrap-tools',
+                                                    default=[':cobertura']))
+
+  def instrument(self, targets, tests, junit_classpath):
+    safe_mkdir(self._coverage_instrument_dir, clean=True)
+    cobertura_classpath = self._task_exports.tool_classpath(self._cobertura_bootstrap_key)
+    with binary_util.safe_args(self.get_coverage_patterns(targets)) as patterns:
+      args = [
+        '--basedir',
+        '.pants.d/compile/java/classes'
+        ]
+      for pattern in patterns:
+        args.append(_classname_to_classfile(pattern))
+      main = 'net.sourceforge.cobertura.instrument.InstrumentMain'
+      result = execute_java(classpath=cobertura_classpath,
+                            main=main,
+                            args=args,
+                            workunit_factory=self._context.new_workunit,
+                            workunit_name='cobertura-instrument')
+      if result != 0:
+        raise TaskError("java %s ... exited non-zero (%i)"
+                        " 'failed to instrument'" % (main, result))
+
+  def run(self, targets, tests, junit_classpath):
+    cobertura_classpath = self._task_exports.tool_classpath(self._cobertura_bootstrap_key)
+    self._run_tests(tests, cobertura_classpath + junit_classpath, JUnitRun._MAIN, jvm_args=None)
+
+  def report(self, targets, tests, junit_classpath):
+    cobertura_classpath = self._task_exports.tool_classpath(self._cobertura_bootstrap_key)
+    args = [
+      os.path.join(os.getcwd(), 'src/java'),
+      '--basedir',
+      '.pants.d/compile/java/classes',
+      '--destination',
+      self._coverage_dir,
+      '--format',
+      'xml' if self._coverage_report_xml else 'html',
+      ]
+    main = 'net.sourceforge.cobertura.reporting.ReportMain'
+    result = execute_java(classpath=cobertura_classpath,
+                          main=main,
+                          args=args,
+                          workunit_factory=self._context.new_workunit,
+                          workunit_name='cobertura-report')
+    if result != 0:
+      raise TaskError("java %s ... exited non-zero (%i)"
+                      " 'failed to report'" % (main, result))
+
+
 class JUnitRun(JvmTask, JvmToolTaskMixin):
   _MAIN = 'com.twitter.common.junit.runner.ConsoleRunner'
 
@@ -488,6 +546,8 @@ class JUnitRun(JvmTask, JvmToolTaskMixin):
     if options.junit_run_coverage or options.junit_run_coverage_html_open:
       if options.junit_coverage_processor == 'emma':
         self._runner = Emma(task_exports, self._context)
+      elif options.junit_coverage_processor == 'cobertura':
+        self._runner = Cobertura(task_exports, self._context)
       else:
         raise TaskError('unknown coverage processor %s' % context.options.junit_coverage_processor)
     else:

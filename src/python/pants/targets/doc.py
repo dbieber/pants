@@ -12,17 +12,18 @@ class WikiArtifact(object):
   def __init__(self, wiki, **kwargs):
     # if not isinstance(wiki, Wiki):
     #   raise ValueError('The 1st argument must be a wiki target, given: %s' % wiki)
-    self.wiki = self.get_wiki_dependencies()
+    #self.wiki = self.get_wiki_dependencies()
+    self.wiki = wiki
     self.config = kwargs
 
-  def get_wiki_dependencies(self):
-    wiki_deps = set()
-    def collect_wiki_deps(target):
-      if isinstance(target, Wiki):
-        wiki_deps.update(target)
-
-    self.walk(work=collect_wiki_deps)
-    return wiki_deps
+  # def get_wiki_dependencies(self):
+  #   wiki_deps = set()
+  #   def collect_wiki_deps(target):
+  #     if isinstance(target, Wiki):
+  #       wiki_deps.update(target)
+  #
+  #   self.walk(work=collect_wiki_deps)
+  #   return wiki_deps
 
 
 

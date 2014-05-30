@@ -64,7 +64,7 @@ page(name='readme',
   source='README.md',
   provides=[
     wiki_artifact(
-      wiki=pants(':confluence'),
+      wiki=pants('src/python/pants/BUILD:confluence'),
       space='~travis',
       title='test_page',
     ),

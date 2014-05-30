@@ -44,7 +44,7 @@ def confluence_url_builder(page, config):
     config['space'],
     urllib.quote_plus(title)
   )
-confluence = wiki(name='confluence',
+confluence = wiki(name='confluence_wiki',
                         url_builder=confluence_url_builder)
 
 class TwitterConfluence(ConfluencePublish):
@@ -64,7 +64,7 @@ page(name='readme',
   source='README.md',
   provides=[
     wiki_artifact(
-      wiki=pants('src/python/pants/BUILD:confluence'),
+      wiki=pants('src/python/pants/BUILD:confluence_wiki'),
       space='~travis',
       title='test_page',
     ),

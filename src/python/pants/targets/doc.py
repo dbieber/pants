@@ -33,11 +33,6 @@ class Wiki(Target):
     Target.__init__(self, name, exclusives=exclusives, **kwargs)
     self.url_builder = url_builder
 
-  @property
-  def traversable_specs(self):
-    yield self
-
-
 
 class Page(Target):
   """Describes a single documentation page.
@@ -86,6 +81,7 @@ class Page(Target):
 
     if not isinstance(provides[0], WikiArtifact):
       raise ValueError('Page must provide a wiki_artifact. Found instead: %s' % provides)
+
     #self.provides = provides
 
   @property
@@ -110,6 +106,12 @@ class Page(Target):
   #   return wiki_deps
 
   @property
+  def traversable_specs(self):
+    if self.payload.provides:
+      for repo in self.payload.provides:
+        yield repo.wiki
+
+  @property
   def provides(self):
     if not self.payload.provides:
       return None
@@ -117,9 +119,8 @@ class Page(Target):
     # TODO(pl): This is an awful hack
     for p in self.payload.provides:
       if isinstance(p.wiki, Compatibility.string):
+        # FIXME: this produces a SyntheticTarget, but in the build graph we have a BuildFileAddress obj.
         address = SyntheticAddress(p.wiki, relative_to=self.address.spec_path)
-        # The problem is that the Wiki object isn't getting into the _build_graph. It seems like the traversable_specs()
-        # callback is never invoked.
         repo_target = self._build_graph.get_target(address)
         p.wiki = repo_target
     return self.payload.provides

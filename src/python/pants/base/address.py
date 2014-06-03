@@ -90,7 +90,8 @@ class Address(object):
             self.target_name == other.target_name)
 
   def __hash__(self):
-    return hash((self.spec_path, self.target_name))
+    h = hash((self.spec_path, self.target_name))
+    return h
 
   def __ne__(self, other):
     return not self.__eq__(other)

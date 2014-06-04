@@ -76,7 +76,7 @@ class ConfluencePublish(Task):
 
     genmap = self.context.products.get('wiki_html')
     for page, wiki_artifact in pages:
-      html_info = genmap.get((self.wiki(), page))
+      html_info = genmap.get((wiki_artifact, page))
       if len(html_info) > 1:
         raise TaskError('Unexpected resources for %s: %s' % (page, html_info))
       basedir, htmls = html_info.items()[0]

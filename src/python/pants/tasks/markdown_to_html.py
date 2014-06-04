@@ -16,6 +16,7 @@ from twitter.common.dirutil import safe_mkdir, safe_open
 
 from pants import binary_util
 from pants.base.address import Address
+from pants.base.address import SyntheticAddress
 from pants.base.build_environment import get_buildroot
 from pants.base.exceptions import TaskError
 from pants.base.target import Target
@@ -155,7 +156,9 @@ class MarkdownToHtml(Task):
 
         for wiki in page.provides:
           def get_config(page):
-            return page.config(wiki)
+            # FIXME(areitz): just take the first provided WikiArtifact
+            for wiki_artifact in page.payload.provides:
+              return wiki_artifact.config
           basedir = os.path.join(self.workdir, str(hash(wiki)))
           process_page((wiki, page), basedir, wiki.wiki.url_builder, get_config,
                        wikigenmap, fragment=True)
@@ -169,7 +172,9 @@ class MarkdownToHtml(Task):
     def parse_url(spec):
       match = MarkdownToHtml.PANTS_LINK.match(spec)
       if match:
-        page = Target.get(Address.parse(get_buildroot(), match.group(1)))
+        #page = Target.get(Address.parse(get_buildroot(), match.group(1)))
+        address = SyntheticAddress(match.group(1), relative_to=get_buildroot())
+        page = self.context.build_graph.get_target(address)
         anchor = match.group(2) or ''
         if not page:
           raise TaskError('Invalid link %s' % match.group(1))

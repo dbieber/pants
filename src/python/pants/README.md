@@ -1,1 +1,3 @@
 [Pants documentation](http://pantsbuild.github.io/) has moved...
+
+[[List of tasks|pants('src/python/pants:readme2')]]

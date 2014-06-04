@@ -12,6 +12,7 @@ from pants.base.build_file import BuildFile
 
 
 # TODO(pl): Add a nice docstring for this
+# FIXME(areitz): why do bad things happen if 'full/path/to/BUILD:target' is specified here?
 def parse_spec(spec, relative_to=''):
   spec_parts = spec.rsplit(':', 1)
   if len(spec_parts) == 1:

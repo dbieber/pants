@@ -69,14 +69,13 @@ class ConfluencePublish(Task):
     pages = []
     for target in targets:
       if isinstance(target, Page):
-        wikiconfig = target.wiki_config(self.wiki())
-        if wikiconfig:
-          pages.append((target, wikiconfig))
+        for wiki_artifact in target.payload.provides:
+          pages.append((target, wiki_artifact))
 
     urls = list()
 
     genmap = self.context.products.get('wiki_html')
-    for page, wikiconfig in pages:
+    for page, wiki_artifact in pages:
       html_info = genmap.get((self.wiki(), page))
       if len(html_info) > 1:
         raise TaskError('Unexpected resources for %s: %s' % (page, html_info))
@@ -86,10 +85,11 @@ class ConfluencePublish(Task):
       with safe_open(os.path.join(basedir, htmls[0])) as contents:
         url = self.publish_page(
           page.address,
-          wikiconfig['space'],
-          wikiconfig['title'],
+          wiki_artifact.config['space'],
+          wiki_artifact.config['title'],
           contents.read(),
-          parent=wikiconfig.get('parent')
+          # Default to none if not present in the hash.
+          parent=wiki_artifact.config.get('parent')
         )
         if url:
           urls.append(url)

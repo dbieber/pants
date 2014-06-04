@@ -65,7 +65,8 @@ page(name='readme',
   source='README.md',
   provides=[
     wiki_artifact(
-      wiki=pants('src/python/pants/BUILD:confluence_wiki'),
+      # FIXME(areitz): investigate why '/src/python/pants/BUILD:confluence_wiki' doesn't work
+      wiki=pants('src/python/pants:confluence_wiki'),
       # FIXME: how do these args get into confluence_url_builder()?
       space='~travis',
       title='test_page',

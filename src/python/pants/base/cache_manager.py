@@ -4,6 +4,7 @@
 from __future__ import (nested_scopes, generators, division, absolute_import, with_statement,
                         print_function, unicode_literals)
 
+import sys
 
 try:
   import cPickle as pickle
@@ -182,11 +183,13 @@ class InvalidationCacheManager(object):
                cache_key_generator,
                build_invalidator_dir,
                invalidate_dependents,
-               extra_data):
+               extra_data,
+               fingerprint_strategy=None):
     self._cache_key_generator = cache_key_generator
     self._invalidate_dependents = invalidate_dependents
     self._extra_data = pickle.dumps(extra_data)  # extra_data may be None.
     self._invalidator = BuildInvalidator(build_invalidator_dir)
+    self._fingerprint_strategy = fingerprint_strategy
 
   def update(self, vts):
     """Mark a changed or invalidated VersionedTargetSet as successfully processed."""
@@ -204,7 +207,10 @@ class InvalidationCacheManager(object):
     self._invalidator.force_invalidate(vts.cache_key)
     vts.valid = False
 
-  def check(self, targets, partition_size_hint=None, target_colors=None):
+  def check(self,
+            targets,
+            partition_size_hint=None,
+            target_colors=None):
     """Checks whether each of the targets has changed and invalidates it if so.
 
     Returns a list of VersionedTargetSet objects (either valid or invalid). The returned sets
@@ -259,7 +265,14 @@ class InvalidationCacheManager(object):
 
   def _key_for(self, target, transitive=False):
     try:
-      return self._cache_key_generator.key_for_target(target, transitive=transitive)
-    except IOError as e:
-      raise self.CacheValidationError("Problem validating file %s for target %s: %s" %
-                                      (e.filename, target.id, e))
+      return self._cache_key_generator.key_for_target(target,
+                                                      transitive=transitive,
+                                                      fingerprint_strategy=self._fingerprint_strategy)
+    except Exception as e:
+      # This is a catch-all for problems we haven't caught up with and given a better diagnostic.
+      # TODO(Eric Ayers): If you see this exception, add a fix to catch the problem earlier.
+      exc_info = sys.exc_info()
+      new_exception = self.CacheValidationError("Problem validating target %s in %s: %s" %
+                                                (target.id, target.address.spec_path, e))
+
+      raise self.CacheValidationError, new_exception, exc_info[2]

@@ -8,11 +8,20 @@ from textwrap import dedent
 
 import mox
 
+from pants.backend.codegen.targets.java_thrift_library import JavaThriftLibrary
+from pants.backend.core.targets.dependencies import Dependencies
+from pants.backend.core.targets.resources import Resources
+from pants.backend.core.tasks.dependees import ReverseDepmap
+from pants.backend.jvm.targets.jar_dependency import JarDependency
+from pants.backend.jvm.targets.jar_library import JarLibrary
+from pants.backend.jvm.targets.java_library import JavaLibrary
+from pants.backend.jvm.targets.scala_library import ScalaLibrary
+from pants.backend.python.targets.python_library import PythonLibrary
+from pants.backend.python.targets.python_tests import PythonTests
 from pants.base.build_environment import get_buildroot
+from pants.base.exceptions import TaskError
 from pants.base.source_root import SourceRoot
-from pants.targets.python_tests import PythonTestSuite, PythonTests
-from pants.tasks.task import TaskError
-from pants.tasks.dependees import ReverseDepmap
+
 from pants_test.tasks.test_base import ConsoleTaskTest
 
 
@@ -28,6 +37,24 @@ class ReverseDepmapEmptyTest(BaseReverseDepmapTest):
 
 
 class ReverseDepmapTest(mox.MoxTestBase, BaseReverseDepmapTest):
+  @property
+  def alias_groups(self):
+    return {
+      'target_aliases': {
+        'dependencies': Dependencies,
+        'jar_library': JarLibrary,
+        'java_library': JavaLibrary,
+        'java_thrift_library': JavaThriftLibrary,
+        'python_library': PythonLibrary,
+        'python_tests': PythonTests,
+        'resources': Resources,
+        'scala_library': ScalaLibrary,
+      },
+      'exposed_objects': {
+        'jar': JarDependency,
+      },
+    }
+
   def setUp(self):
     super(ReverseDepmapTest, self).setUp()
 
@@ -39,7 +66,7 @@ class ReverseDepmapTest(mox.MoxTestBase, BaseReverseDepmapTest):
           ''' % dict(
         type='dependencies' if alias else 'python_library',
         name=name,
-        deps=','.join("pants('%s')" % dep for dep in list(deps)))
+        deps=','.join("'%s'" % dep for dep in list(deps)))
       ))
 
     add_to_build_file('common/a', 'a', deps=['common/d'])
@@ -63,7 +90,7 @@ class ReverseDepmapTest(mox.MoxTestBase, BaseReverseDepmapTest):
     self.add_to_build_file('src/java/a', dedent('''
       java_library(
         name='a_java',
-        resources=[pants('resources/a:a_resources')]
+        resources=['resources/a:a_resources']
       )
     '''))
 
@@ -81,7 +108,7 @@ class ReverseDepmapTest(mox.MoxTestBase, BaseReverseDepmapTest):
       jar_library(
         name='compiled_scala',
         dependencies=[
-          pants(':mybird')
+          ':mybird',
         ]
       )
       '''))
@@ -90,7 +117,7 @@ class ReverseDepmapTest(mox.MoxTestBase, BaseReverseDepmapTest):
       scala_library(
         name='compiled_scala_user',
         dependencies=[
-          pants(':compiled_scala')
+          ':compiled_scala'
         ],
         sources=['1.scala'],
       )
@@ -120,7 +147,7 @@ class ReverseDepmapTest(mox.MoxTestBase, BaseReverseDepmapTest):
       java_library(
         name='example2',
         dependencies=[
-          pants(':mybird')
+          ':mybird',
         ],
         sources=['2.java']
       )
@@ -192,10 +219,10 @@ class ReverseDepmapTest(mox.MoxTestBase, BaseReverseDepmapTest):
     )
 
   def test_empty_depeendees_type(self):
-    self._set_up_mocks(PythonTestSuite, [])
+    self._set_up_mocks(Dependencies, [])
     self.assert_console_raises(
       TaskError,
-      args=['--test-type=python_test_suite'],
+      args=['--test-type=dependencies'],
       targets=[self.target('common/d')]
     )
 

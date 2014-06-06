@@ -16,25 +16,25 @@ from twitter.common.dirutil import safe_mkdir
 from twitter.common.lang import Compatibility
 from twitter.common.log.options import LogOptions
 
+from pants.backend.core.tasks.console_task import ConsoleTask
+from pants.backend.core.tasks.task import Task
 from pants.base.address import BuildFileAddress, parse_spec
 from pants.base.build_environment import get_buildroot
 from pants.base.build_file import BuildFile
 from pants.base.config import Config, ConfigOption
-from pants.base.rcfile import RcFile
-from pants.base.target import Target
 from pants.base.exceptions import TargetDefinitionException, TaskError
+from pants.base.rcfile import RcFile
 from pants.base.spec_parser import SpecParser
+from pants.base.target import Target
 from pants.base.workunit import WorkUnit
 from pants.commands.command import Command
 from pants.engine.engine import Engine
-from pants.engine.group_engine import GroupEngine
-from pants.goal import Context, GoalError, Phase, register
+from pants.engine.linear_engine import LinearEngine
+from pants.goal import Context, GoalError, Phase
 from pants.goal.help import print_help
 from pants.goal.initialize_reporting import update_reporting
 from pants.goal.option_helpers import add_global_options
-from pants.tasks.task import Task
-from pants.jvm.nailgun_task import NailgunTask
-from pants.tasks.console_task import ConsoleTask
+from pants.backend.jvm.tasks.nailgun_task import NailgunTask  # XXX(pl)
 
 
 StringIO = Compatibility.StringIO
@@ -79,10 +79,10 @@ class Goal(Command):
     # acquire the lock if they need to be serialized.
     return False
 
-  def __init__(self, run_tracker, root_dir, parser, args):
+  def __init__(self, *args, **kwargs):
     self.targets = []
     self.config = None
-    Command.__init__(self, run_tracker, root_dir, parser, args)
+    super(Goal, self).__init__(*args, **kwargs)
 
   @contextmanager
   def check_errors(self, banner):
@@ -137,13 +137,12 @@ class Goal(Command):
 
     help_flags = set(['-h', '--help', 'help'])
     show_help = len(help_flags.intersection(args)) > 0
-    args = filter(lambda f: f not in help_flags, args)
+    non_help_args = filter(lambda f: f not in help_flags, args)
 
-    goals, specs = Goal.parse_args(args)
+    goals, specs = Goal.parse_args(non_help_args)
     if show_help:
       print_help(goals)
       sys.exit(0)
-
 
     self.requested_goals = goals
 
@@ -179,6 +178,8 @@ class Goal(Command):
 
       augmented_args = rcfile.apply_defaults(sections, args)
       if augmented_args != args:
+        # TODO(John Sirois): Cleanup this currently important mutation of the passed in args
+        # once the 2-layer of command -> goal is squashed into one.
         del args[:]
         args.extend(augmented_args)
         sys.stderr.write("(using pantsrc expansion: pants goal %s)\n" % ' '.join(augmented_args))
@@ -230,7 +231,7 @@ class Goal(Command):
       context.log.error('Unknown goal(s): %s\n' % ' '.join(phase.name for phase in unknown))
       return 1
 
-    engine = GroupEngine()
+    engine = LinearEngine()
     return engine.execute(context, self.phases)
 
   def cleanup(self):

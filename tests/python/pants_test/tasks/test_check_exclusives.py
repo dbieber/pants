@@ -7,13 +7,9 @@ from __future__ import (nested_scopes, generators, division, absolute_import, wi
 import shutil
 import tempfile
 
-from twitter.common.dirutil import safe_mkdtemp, safe_rmtree
+from pants.backend.core.tasks.check_exclusives import CheckExclusives
+from pants.base.exceptions import TaskError
 
-from pants.base.config import Config
-from pants.base.target import Target
-from pants.goal import Context
-from pants.tasks.task import TaskError
-from pants.tasks.check_exclusives import CheckExclusives
 from pants_test.base_test import BaseTest
 
 
@@ -28,14 +24,6 @@ class CheckExclusivesTest(BaseTest):
     shutil.rmtree(self.workdir, ignore_errors=True)
     super(CheckExclusivesTest, self).tearDown()
 
-  def _make_context(self, target_roots):
-    return Context(self.config,
-                   options={},
-                   run_tracker=None,
-                   target_roots=target_roots,
-                   build_graph=self.build_graph,
-                   build_file_parser=self.build_file_parser)
-
   def test_check_exclusives(self):
     a = self.make_target(':a', exclusives={'a': '1', 'b': '1'})
     b = self.make_target(':b', exclusives={'a': '1'})
@@ -43,10 +31,10 @@ class CheckExclusivesTest(BaseTest):
     d = self.make_target(':d', dependencies=[a, b])
     e = self.make_target(':e', dependencies=[a, c], exclusives={'c': '1'})
 
-    context = self._make_context(target_roots=[d, e])
+    context = self.context(target_roots=[d, e])
     check_exclusives_task = CheckExclusives(context, self.workdir, signal_error=True)
     try:
-      check_exclusives_task.execute([d, e])
+      check_exclusives_task.execute()
       self.fail("Expected a conflicting exclusives exception to be thrown.")
     except TaskError:
       pass
@@ -58,10 +46,10 @@ class CheckExclusivesTest(BaseTest):
     c = self.make_target(':c', exclusives={'a': '2', 'b': '2'})
     d = self.make_target(':d')
 
-    context = self._make_context(target_roots=[a, b, c, d])
+    context = self.context(target_roots=[a, b, c, d])
     context.products.require_data('exclusives_groups')
     check_exclusives_task = CheckExclusives(context, self.workdir, signal_error=True)
-    check_exclusives_task.execute([a, b, c, d])
+    check_exclusives_task.execute()
     egroups = context.products.get_data('exclusives_groups')
     # Expected compatibility:
     # a is compatible with nothing but itself.
@@ -95,10 +83,10 @@ class CheckExclusivesTest(BaseTest):
     c = self.make_target(':c', exclusives={'a': '2', 'b': '2'})
     d = self.make_target(':d')
 
-    context = self._make_context(target_roots=[a, b, c, d])
+    context = self.context(target_roots=[a, b, c, d])
     context.products.require_data('exclusives_groups')
     check_exclusives_task = CheckExclusives(context, self.workdir, signal_error=True)
-    check_exclusives_task.execute([a, b, c, d])
+    check_exclusives_task.execute()
     egroups = context.products.get_data('exclusives_groups')
 
     egroups.set_base_classpath_for_group("a=1,b=1", ["a1", "b1"])

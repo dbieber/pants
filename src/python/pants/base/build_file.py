@@ -4,18 +4,31 @@
 from __future__ import (nested_scopes, generators, division, absolute_import, with_statement,
                         print_function, unicode_literals)
 
+from glob import glob1
+import logging
+import marshal
 import os
 import re
-from glob import glob1
 
-import marshal
 from twitter.common.collections import OrderedSet
 from twitter.common.python.interpreter import PythonIdentity
 
 
+logger = logging.getLogger(__name__)
+
+
 class BuildFile(object):
-  _CANONICAL_NAME = 'BUILD'
-  _PATTERN = re.compile('^%s(\.[a-z]+)?$' % _CANONICAL_NAME)
+  _BUILD_FILE_PREFIX = 'BUILD'
+  _PATTERN = re.compile('^%s(\.[a-zA-Z0-9_-]+)?$' % _BUILD_FILE_PREFIX)
+
+  @staticmethod
+  def _get_all_build_files(path):
+    """Returns all the BUILD files on a path"""
+    results = []
+    for build in glob1(path, "%s*" % (BuildFile._BUILD_FILE_PREFIX)):
+      if BuildFile._is_buildfile_name(build):
+        results.append(build)
+    return sorted(results)
 
   @staticmethod
   def _is_buildfile_name(name):
@@ -49,11 +62,23 @@ class BuildFile(object):
                     .format(root_dir=root_dir))
 
     path = os.path.join(root_dir, relpath)
-    buildfile = os.path.join(path, BuildFile._CANONICAL_NAME) if os.path.isdir(path) else path
+    self._build_basename = BuildFile._BUILD_FILE_PREFIX
+    buildfile = os.path.join(path, self._build_basename) if os.path.isdir(path) else path
 
     if os.path.isdir(buildfile):
       raise IOError('Path to buildfile ({buildfile}) is a directory, but it must be a file.'
                     .format(buildfile=buildfile))
+
+    if must_exist:
+      if not os.path.exists(os.path.dirname(buildfile)):
+        raise IOError("Path to BUILD file does not exist at: %s" % os.path.dirname(buildfile))
+
+    # There is no BUILD file without a prefix so select any viable sibling
+    if not os.path.exists(buildfile):
+      for build in BuildFile._get_all_build_files(os.path.dirname(buildfile)):
+        self._build_basename = build
+        buildfile = os.path.join(path, self._build_basename)
+        break
 
     if must_exist:
       if not os.path.exists(buildfile):
@@ -61,9 +86,6 @@ class BuildFile(object):
 
       if not BuildFile._is_buildfile_name(os.path.basename(buildfile)):
         raise IOError("%s is not a BUILD file" % buildfile)
-
-      if not os.path.exists(buildfile):
-        raise IOError("BUILD file does not exist at: %s" % buildfile)
 
     self.root_dir = os.path.realpath(root_dir)
     self.full_path = os.path.realpath(buildfile)
@@ -76,7 +98,6 @@ class BuildFile(object):
 
     self.relpath = os.path.relpath(self.full_path, self.root_dir)
     self.spec_path = os.path.dirname(self.relpath)
-    self.canonical_relpath = os.path.join(os.path.dirname(self.relpath), BuildFile._CANONICAL_NAME)
 
   def exists(self):
     """Returns True if this BuildFile corresponds to a real BUILD file on disk."""
@@ -95,17 +116,17 @@ class BuildFile(object):
 
     def find_parent(dir):
       parent = os.path.dirname(dir)
-      buildfile = os.path.join(parent, BuildFile._CANONICAL_NAME)
-      if os.path.exists(buildfile) and not os.path.isdir(buildfile):
-        return parent, BuildFile(self.root_dir, os.path.relpath(buildfile, self.root_dir))
-      else:
-        return parent, None
+      for parent_buildfile in BuildFile._get_all_build_files(parent):
+        buildfile = os.path.join(parent, parent_buildfile)
+        if os.path.exists(buildfile) and not os.path.isdir(buildfile):
+          return parent,  BuildFile(self.root_dir, os.path.relpath(buildfile, self.root_dir))
+      return parent, None
 
     parent_buildfiles = OrderedSet()
 
     parentdir = os.path.dirname(self.full_path)
     visited = set()
-    while parentdir not in visited and self.root_dir != parentdir:
+    while parentdir not in visited and os.path.abspath(self.root_dir) != os.path.abspath(parentdir):
       visited.add(parentdir)
       parentdir, buildfile = find_parent(parentdir)
       if buildfile:
@@ -117,8 +138,8 @@ class BuildFile(object):
     """Returns an iterator over all the BUILD files co-located with this BUILD file not including
     this BUILD file itself"""
 
-    for build in glob1(self.parent_path, 'BUILD*'):
-      if self.name != build and BuildFile._is_buildfile_name(build):
+    for build in BuildFile._get_all_build_files(self.parent_path):
+      if self.name != build :
         siblingpath = os.path.join(os.path.dirname(self.relpath), build)
         if not os.path.isdir(os.path.join(self.root_dir, siblingpath)):
           yield BuildFile(self.root_dir, siblingpath)
@@ -126,7 +147,7 @@ class BuildFile(object):
   def family(self):
     """Returns an iterator over all the BUILD files co-located with this BUILD file including this
     BUILD file itself.  The family forms a single logical BUILD file composed of the canonical BUILD
-    file and optional sibling build files each with their own extension, eg: BUILD.extras."""
+    file if it exists and sibling build files each with their own extension, eg: BUILD.extras."""
 
     yield self
     for sibling in self.siblings():
@@ -139,7 +160,7 @@ class BuildFile(object):
       with open(self._bytecode_path, 'rb') as bytecode:
         try:
           return marshal.load(bytecode)
-        except Exception:
+        except Exception as e:
           logger.warn('Failed to marshall BUILD file bytecode at {_bytecode_path}.'
                       ' Exception was: {e}'
                       .format(_bytecode_path=self._bytecode_path, e=e))

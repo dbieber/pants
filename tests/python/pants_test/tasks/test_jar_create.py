@@ -5,38 +5,64 @@ from __future__ import (nested_scopes, generators, division, absolute_import, wi
                         print_function, unicode_literals)
 
 import os
+
 from collections import defaultdict
 from contextlib import closing, contextmanager
 from textwrap import dedent
 
-from twitter.common.contextutil import temporary_dir
+from twitter.common.contextutil import open_zip, temporary_dir
 from twitter.common.dirutil import safe_open
-from pants.base.target import Target
 
+from pants.backend.codegen.targets.java_thrift_library import JavaThriftLibrary
+from pants.backend.core.targets.resources import Resources
+from pants.backend.jvm.targets.artifact import Artifact
+from pants.backend.jvm.targets.java_library import JavaLibrary
+from pants.backend.jvm.targets.jvm_binary import JvmBinary
+from pants.backend.jvm.targets.repository import Repository
+from pants.backend.jvm.targets.scala_library import ScalaLibrary
+from pants.backend.jvm.tasks.jar_create import JarCreate, is_jvm_library
 from pants.base.source_root import SourceRoot
 from pants.goal.products import MultipleRootedProducts
-from pants.java.jar import open_jar
-from pants.targets.java_library import JavaLibrary
-from pants.targets.java_thrift_library import JavaThriftLibrary
-from pants.targets.jvm_binary import JvmBinary
-from pants.targets.resources import Resources
-from pants.targets.scala_library import ScalaLibrary
-from pants.tasks.jar_create import JarCreate, is_jvm_library
-from pants_test.base_test import BaseTest
+
 from pants_test.base.context_utils import create_context
+from pants_test.jvm.jar_task_test_base import JarTaskTestBase
 
 
-class JarCreateTestBase(BaseTest):
-  @staticmethod
-  def create_options(**kwargs):
-    options = dict(jar_create_transitive=None,
-                   jar_create_compressed=None,
-                   jar_create_classes=None,
-                   jar_create_sources=None,
-                   jar_create_idl=None,
-                   jar_create_javadoc=None)
+class JarCreateTestBase(JarTaskTestBase):
+  @property
+  def alias_groups(self):
+    super_groups = super(JarCreateTestBase, self).alias_groups.copy()
+    local_groups = {
+      'target_aliases': {
+        'java_library': JavaLibrary,
+        'jvm_binary': JvmBinary,
+        'resources': Resources,
+        'scala_library': ScalaLibrary,
+        'java_thrift_library': JavaThriftLibrary,
+        'repo': Repository,
+      },
+      'exposed_objects': {
+        'pants': lambda x: x,
+        'artifact': Artifact,
+      },
+      'applicative_path_relative_utils': {
+        'source_root': SourceRoot,
+      },
+    }
+    for key, group_map in local_groups.iteritems():
+      super_group = super_groups.get(key, {})
+      super_group.update(group_map)
+      super_groups[key] = super_group
+    return super_groups
+
+  def create_options(self, **kwargs):
+    options = dict(jar_create_transitive=True,
+                   jar_create_compressed=False,
+                   jar_create_classes=False,
+                   jar_create_sources=False,
+                   jar_create_javadoc=False)
     options.update(**kwargs)
-    return options
+    return super(JarCreateTestBase, self).create_options(**options)
 
 
 class JarCreateMiscTest(JarCreateTestBase):
@@ -55,8 +81,8 @@ class JarCreateMiscTest(JarCreateTestBase):
   def test_resources_with_scala_java_files(self):
     for ftype in ('java', 'scala'):
       target = self.create_resources(os.path.join('project', ftype),
-                              'target_%s' % ftype,
-                              'hello.%s' % ftype)
+                                     'target_%s' % ftype,
+                                     'hello.%s' % ftype)
       self.assertFalse(is_jvm_library(target))
 
 
@@ -82,12 +108,6 @@ class JarCreateExecuteTest(JarCreateTestBase):
 
   def setUp(self):
     super(JarCreateExecuteTest, self).setUp()
-    self.add_to_build_file('build-support/ivy',
-                      dedent('''
-                         repo(name = 'ivy',
-                              url = 'https://art.twitter.biz/',
-                              push_db = 'dummy.pushdb')
-                       '''))
 
     def get_source_root_fs_path(path):
       return os.path.realpath(os.path.join(self.build_root, path))
@@ -99,20 +119,19 @@ class JarCreateExecuteTest(JarCreateTestBase):
 
     self.res = self.create_resources('src/resources/com/twitter', 'spam', 'r.txt')
     self.jl = self.java_library('src/java/com/twitter', 'foo', ['a.java'],
-                              resources='src/resources/com/twitter:spam')
+                                resources='src/resources/com/twitter:spam')
     self.sl = self.scala_library('src/scala/com/twitter', 'bar', ['c.scala'])
     self.jtl = self.java_thrift_library('src/thrift/com/twitter', 'baz', 'd.thrift')
     self.java_lib_foo = self.java_library('src/java/com/twitter/foo', 'java_foo', ['java_foo.java'])
     self.scala_lib = self.scala_library('src/scala/com/twitter/foo',
-                                      'scala_foo',
-                                      ['scala_foo.scala'],
-                                      provides=True,
-                                      java_sources=['src/java/com/twitter/foo:java_foo'])
+                                        'scala_foo',
+                                        ['scala_foo.scala'],
+                                        java_sources=['src/java/com/twitter/foo:java_foo'])
     self.binary = self.jvm_binary('src/java/com/twitter/baz', 'baz', source='b.java',
-                                resources='src/resources/com/twitter:spam')
+                                  resources='src/resources/com/twitter:spam')
 
   def context(self, config='', **options):
-    return create_context(config=config,
+    return create_context(config=self.config(overrides=config),
                           options=self.create_options(**options),
                           build_graph=self.build_graph,
                           build_file_parser=self.build_file_parser,
@@ -147,8 +166,8 @@ class JarCreateExecuteTest(JarCreateTestBase):
     self.assertEqual(1, len(jar_mapping))
     for basedir, jars in jar_mapping.items():
       self.assertEqual(1, len(jars))
-      with open_jar(os.path.join(basedir, jars[0])) as jar:
-        self.assertEqual(list(contents), jar.namelist())
+      with open_zip(os.path.join(basedir, jars[0])) as jar:
+        self.assertEqual(['META-INF/', 'META-INF/MANIFEST.MF'] + list(contents), jar.namelist())
         for content in contents:
           if not content.endswith('/'):
             with closing(jar.open(content)) as fp:
@@ -162,7 +181,7 @@ class JarCreateExecuteTest(JarCreateTestBase):
             with self.add_data(context, 'classes_by_target', self.scala_lib, 'scala_foo.class',
                                'java_foo.class'):
               with temporary_dir() as workdir:
-                JarCreate(context, workdir).execute(context.targets())
+                self.execute(context, workdir, JarCreate)
                 if empty:
                   self.assertTrue(context.products.get('jars').empty())
                 else:
@@ -187,8 +206,7 @@ class JarCreateExecuteTest(JarCreateTestBase):
 
   def assert_source_jar_contents(self, context, empty=False):
     with temporary_dir() as workdir:
-      JarCreate(context, workdir).execute(context.targets())
-
+      self.execute(context, workdir, JarCreate)
       if empty:
         self.assertTrue(context.products.get('source_jars').empty())
       else:
@@ -212,8 +230,7 @@ class JarCreateExecuteTest(JarCreateTestBase):
     with self.add_products(context, 'javadoc', self.jl, 'a.html', 'b.html'):
       with self.add_products(context, 'scaladoc', self.sl, 'c.html'):
         with temporary_dir() as workdir:
-          JarCreate(context, workdir, **kwargs).execute(context.targets())
-
+          self.execute(context, workdir, JarCreate)
           if empty:
             self.assertTrue(context.products.get('javadoc_jars').empty())
           else:

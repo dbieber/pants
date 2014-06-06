@@ -5,15 +5,26 @@ python_library(
   name = 'base_test',
   sources = ['base_test.py'],
   dependencies = [
+    pants('3rdparty/python/twitter/commons:twitter.common.contextutil'),
     pants('3rdparty/python/twitter/commons:twitter.common.dirutil'),
+    pants('src/python/pants/backend/core/targets:common'),
     pants('src/python/pants/base:address'),
-    pants('src/python/pants/base:build_root'),
-    pants('src/python/pants/base:build_graph'),
     pants('src/python/pants/base:build_file_parser'),
+    pants('src/python/pants/base:build_graph'),
+    pants('src/python/pants/base:build_root'),
+    pants('src/python/pants/base:config'),
     pants('src/python/pants/base:exceptions'),
     pants('src/python/pants/base:target'),
-    pants('src/python/pants/base:build_file_aliases'),
-    pants('src/python/pants/targets:common'),
+    pants('tests/python/pants_test/base:context_utils'),
+  ]
+)
+
+python_library(
+  name = 'int-test',
+  sources = ['pants_run_integration_test.py'],
+  dependencies = [
+    pants('3rdparty/python/twitter/commons:twitter.common.dirutil'),
+    pants('src/python/pants/commands:goal'),
   ]
 )
 
@@ -22,6 +33,7 @@ python_tests(
   sources = ['test_maven_layout.py'],
   dependencies = [
     pants(':base_test'),
+    pants('src/python/pants/backend/maven_layout'),
   ]
 )
 
@@ -34,6 +46,13 @@ python_tests(
     pants('3rdparty/python/twitter/commons:twitter.common.dirutil'),
     pants('3rdparty/python/twitter/commons:twitter.common.lang'),
     pants('src/python/pants:thrift_util'),
+  ]
+)
+
+python_test_suite(
+  name = 'integration',
+  dependencies = [
+    pants('tests/python/pants_test/tasks:jar_publish_integration'),
   ]
 )
 

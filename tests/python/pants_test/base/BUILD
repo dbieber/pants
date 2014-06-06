@@ -28,6 +28,7 @@ python_test_suite(
     pants(':abbreviate_target_ids'),
     pants(':address'),
     pants(':build_file'),
+    pants(':build_file_parser'),
     pants(':build_invalidator'),
     pants(':build_root'),
     pants(':double_dag'),
@@ -54,7 +55,7 @@ python_tests(
     pants('3rdparty/python/twitter/commons:twitter.common.contextutil'),
     pants('3rdparty/python/twitter/commons:twitter.common.dirutil'),
     pants('src/python/pants/base:address'),
-    pants('src/python/pants/base:build_environment'),
+    pants('src/python/pants/base:build_root'),
     pants('tests/python/pants_test:base_test'),
   ]
 )
@@ -66,6 +67,18 @@ python_tests(
     pants('3rdparty/python/twitter/commons:twitter.common.collections'),
     pants('3rdparty/python/twitter/commons:twitter.common.dirutil'),
     pants('src/python/pants/base:build_file'),
+    pants('tests/python/pants_test:base_test'),
+  ]
+)
+
+python_tests(
+  name = 'build_file_parser',
+  sources = ['test_build_file_parser.py'],
+  dependencies = [
+    pants('3rdparty/python/twitter/commons:twitter.common.collections'),
+    pants('3rdparty/python/twitter/commons:twitter.common.dirutil'),
+    pants('src/python/pants/base:build_file'),
+    pants('src/python/pants/backend/jvm/targets:jvm'),
     pants('tests/python/pants_test:base_test'),
   ]
 )

@@ -6,10 +6,7 @@ from __future__ import (nested_scopes, generators, division, absolute_import, wi
 
 from twitter.common.contextutil import temporary_dir
 
-from pants.base.config import Config
-from pants.base.target import Target
-from pants.goal import Context
-from pants.tasks.check_exclusives import CheckExclusives
+from pants.backend.core.tasks.check_exclusives import CheckExclusives
 from pants_test.base_test import BaseTest
 
 
@@ -35,11 +32,11 @@ class ExclusivesTargetTest(BaseTest):
     # Target e has conflicts; in this test, we want to check that partitioning
     # of valid targets works to prevent conflicts in chunks, so we only use a-d.
     a, b, c, d, _ = self.setupTargets()
-    context = Context(self.config, options={}, run_tracker=None, target_roots=[a, b, c, d])
+    context = self.context(target_roots=[a, b, c, d])
     context.products.require_data('exclusives_groups')
     with temporary_dir() as workdir:
       check_exclusives_task = CheckExclusives(context, workdir, signal_error=True)
-      check_exclusives_task.execute([a, b, c, d])
+      check_exclusives_task.execute()
     egroups = context.products.get_data('exclusives_groups')
     self.assertEquals(egroups.get_targets_for_group_key("a=1"), set([a, b, d]))
     self.assertEquals(egroups.get_targets_for_group_key("a=2"), set([c]))

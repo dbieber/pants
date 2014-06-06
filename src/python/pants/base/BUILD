@@ -46,16 +46,6 @@ python_library(
 )
 
 python_library(
-  name = 'build_file_aliases',
-  sources = ['build_file_aliases.py'],
-  dependencies = [
-    pants(':source_root'),
-    pants('src/python/pants/goal'),
-    pants('src/python/pants/targets:all'),
-  ]
-)
-
-python_library(
   name = 'build_graph',
   sources = ['build_graph.py'],
   dependencies = [
@@ -110,6 +100,14 @@ python_library(
 )
 
 python_library(
+  name = 'dev_backend_loader',
+  sources = ['dev_backend_loader.py'],
+  dependencies = [
+    pants('3rdparty/python/twitter/commons:twitter.common.collections'),
+  ]
+)
+
+python_library(
   name = 'double_dag',
   sources = ['double_dag.py'],
   dependencies = [
@@ -120,6 +118,14 @@ python_library(
 python_library(
   name = 'exceptions',
   sources = ['exceptions.py'],
+  dependencies = [
+    pants(':build_manual'),
+  ]
+)
+
+python_library(
+  name = 'fingerprint_strategy',
+  sources = ['fingerprint_strategy.py'],
 )
 
 python_library(
@@ -202,8 +208,11 @@ python_library(
   sources = ['target.py'],
   dependencies = [
     pants(':address'),
+    pants(':build_environment'),
     pants(':build_manual'),
+    pants(':fingerprint_strategy'),
     pants(':hash_utils'),
+    pants(':source_root'),
     pants('3rdparty/python/twitter/commons:twitter.common.collections'),
     pants('3rdparty/python/twitter/commons:twitter.common.lang'),
   ],

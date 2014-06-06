@@ -10,6 +10,7 @@ import os
 
 from pants.base.build_environment import get_buildroot
 from pants.base.build_manual import manual
+from pants.base.fingerprint_strategy import DefaultFingerprintStrategy
 from pants.base.hash_utils import hash_all
 from pants.base.payload import EmptyPayload
 from pants.base.source_root import SourceRoot
@@ -56,11 +57,6 @@ class AbstractTarget(object):
   def is_codegen(self):
     """Returns True if the target is a codegen target."""
     return self.has_label('codegen')
-
-  @property
-  def is_synthetic(self):
-    """Returns True if the target is a synthetic target injected by the runtime."""
-    return self.has_label('synthetic')
 
   @property
   def is_jar_library(self):
@@ -151,40 +147,45 @@ class Target(AbstractTarget):
         self.declared_exclusives[k].add(exclusives[k])
     self.exclusives = None
 
-    self._cached_invalidation_hash = None
-    self._cached_transitive_invalidation_hash = None
+    self._cached_fingerprint_map = {}
+    self._cached_transitive_fingerprint_map = {}
 
-  def compute_invalidation_hash(self):
-    return self.payload.invalidation_hash()
+  def compute_invalidation_hash(self, fingerprint_strategy=None):
+    fingerprint_strategy = fingerprint_strategy or DefaultFingerprintStrategy()
+    return fingerprint_strategy.fingerprint_target(self)
 
-  def invalidation_hash(self):
-    if self._cached_invalidation_hash is None:
-      self._cached_invalidation_hash = self.compute_invalidation_hash()
-    return self._cached_invalidation_hash
+  def invalidation_hash(self, fingerprint_strategy=None):
+    fingerprint_strategy = fingerprint_strategy or DefaultFingerprintStrategy()
+    fp_name = fingerprint_strategy.name()
+    if fp_name not in self._cached_fingerprint_map:
+      self._cached_fingerprint_map[fp_name] = self.compute_invalidation_hash(fingerprint_strategy)
+    return self._cached_fingerprint_map[fp_name]
 
   def mark_extra_invalidation_hash_dirty(self):
     pass
 
   def mark_invalidation_hash_dirty(self):
-    self._cached_invalidation_hash = None
-    self._cached_transitive_invalidation_hash = None
+    self._cached_fingerprint_map = {}
+    self._cached_transitive_fingerprint_map = {}
     self.mark_extra_invalidation_hash_dirty()
 
-  def transitive_invalidation_hash(self):
-    if self._cached_transitive_invalidation_hash is None:
+  def transitive_invalidation_hash(self, fingerprint_strategy=None):
+    fingerprint_strategy = fingerprint_strategy or DefaultFingerprintStrategy()
+    fp_name = fingerprint_strategy.name()
+    if fp_name not in self._cached_transitive_fingerprint_map:
       hasher = sha1()
       direct_deps = sorted(self.dependencies)
       for dep in direct_deps:
-        hasher.update(dep.transitive_invalidation_hash())
-      target_hash = self.invalidation_hash()
+        hasher.update(dep.transitive_invalidation_hash(fingerprint_strategy))
+      target_hash = self.invalidation_hash(fingerprint_strategy)
       dependencies_hash = hasher.hexdigest()[:12]
       combined_hash = '{target_hash}.{deps_hash}'.format(target_hash=target_hash,
                                                          deps_hash=dependencies_hash)
-      self._cached_transitive_invalidation_hash = combined_hash
-    return self._cached_transitive_invalidation_hash
+      self._cached_transitive_fingerprint_map[fp_name] = combined_hash
+    return self._cached_transitive_fingerprint_map[fp_name]
 
   def mark_transitive_invalidation_hash_dirty(self):
-    self._cached_transitive_invalidation_hash = None
+    self._cached_transitive_fingerprint_map = {}
     self.mark_extra_transitive_invalidation_hash_dirty()
 
   def mark_extra_transitive_invalidation_hash_dirty(self):
@@ -213,12 +214,21 @@ class Target(AbstractTarget):
         yield os.path.relpath(abs_source, abs_source_root)
 
   @property
-  def cloned_from(self):
+  def derived_from(self):
     """Returns the target this target was derived from.
 
     If this target was not derived from another, returns itself.
     """
-    return self._build_graph.get_clonal_ancestor(self.address)
+    return self._build_graph.get_derived_from(self.address)
+
+  @property
+  def concrete_derived_from(self):
+    """Returns the concrete target this target was (directly or indirectly) derived from.
+
+    The returned target is guaranteed to not have been derived from any other target, and is thus
+    guaranteed to be a 'real' target from a BUILD file, not a programmatically injected target.
+    """
+    return self._build_graph.get_concrete_derived_from(self.address)
 
   @property
   def traversable_specs(self):

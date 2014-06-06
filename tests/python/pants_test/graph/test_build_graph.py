@@ -13,11 +13,10 @@ import pytest
 from twitter.common.contextutil import pushd, temporary_dir
 from twitter.common.dirutil import touch
 
-from pants.base.address import BuildFileAddress, SyntheticAddress
-from pants.base.build_environment import set_buildroot
-from pants.base.build_file import BuildFile
+from pants.base.address import SyntheticAddress
 from pants.base.build_file_parser import BuildFileParser
 from pants.base.build_graph import BuildGraph
+from pants.base.build_root import BuildRoot
 from pants.base.target import Target
 
 
@@ -25,17 +24,13 @@ class BuildGraphTest(unittest.TestCase):
   @contextmanager
   def workspace(self, *buildfiles):
     with temporary_dir() as root_dir:
-      set_buildroot(root_dir)
-      with pushd(root_dir):
-        for buildfile in buildfiles:
-          touch(os.path.join(root_dir, buildfile))
-        yield os.path.realpath(root_dir)
+      with BuildRoot().temporary(root_dir):
+        with pushd(root_dir):
+          for buildfile in buildfiles:
+            touch(os.path.join(root_dir, buildfile))
+          yield os.path.realpath(root_dir)
 
   def test_transitive_closure_spec(self):
-    class FakeTarget(Target):
-      def __init__(self, *args, **kwargs):
-        super(FakeTarget, self).__init__(*args, payload=None, **kwargs)
-
     with self.workspace('./BUILD', 'a/BUILD', 'a/b/BUILD') as root_dir:
       with open(os.path.join(root_dir, './BUILD'), 'w') as build:
         build.write(dedent('''
@@ -58,11 +53,8 @@ class BuildGraphTest(unittest.TestCase):
           fake(name="bat")
         '''))
 
-      parser = BuildFileParser(root_dir=root_dir,
-                               exposed_objects={},
-                               path_relative_utils={},
-                               target_alias_map={'fake': FakeTarget})
-
+      parser = BuildFileParser(root_dir=root_dir)
+      parser.register_target_alias('fake', Target)
       build_graph = BuildGraph()
       parser.inject_spec_closure_into_build_graph(':foo', build_graph)
       self.assertEqual(len(build_graph.dependencies_of(SyntheticAddress(':foo'))), 1)

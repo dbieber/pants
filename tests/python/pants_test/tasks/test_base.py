@@ -4,19 +4,20 @@
 from __future__ import (nested_scopes, generators, division, absolute_import, with_statement,
                         print_function, unicode_literals)
 
-from StringIO import StringIO
+import os
+import pytest
+
 from contextlib import closing
 from optparse import OptionGroup, OptionParser
-import os
+from StringIO import StringIO
 
-import pytest
 from twitter.common.collections import maybe_list
 
 from pants.base.target import Target
 from pants.commands.goal import SpecParser
 from pants.goal import Context, Mkflag
-from pants.tasks.task import Task
-from pants.tasks.console_task import ConsoleTask
+from pants.backend.core.tasks.task import Task
+from pants.backend.core.tasks.console_task import ConsoleTask
 from pants_test.base_test import BaseTest
 from pants_test.base.context_utils import create_config, create_run_tracker
 
@@ -105,14 +106,12 @@ class ConsoleTaskTest(TaskTest):
     """Subclasses must return the type of the ConsoleTask subclass under test."""
     raise NotImplementedError()
 
-  def execute_task(self, config=None, args=None, targets=None, extra_targets=None):
+  def execute_task(self, config=None, args=None, targets=None):
     """Creates a new task and executes it with the given config, command line args and targets.
 
     config:        an optional string representing the contents of a pants.ini config.
     args:          optional list of command line flags, these should be prefixed with '--test-'.
     targets:       optional list of Target objects passed on the command line.
-    extra_targets: optional list of extra targets in the context in addition to those passed on the
-                   command line
     Returns the text output of the task.
     """
     with closing(StringIO()) as output:
@@ -123,7 +122,7 @@ class ConsoleTaskTest(TaskTest):
                           outstream=output,
                           build_graph=self.build_graph,
                           build_file_parser=self.build_file_parser)
-      task.execute(list(targets or ()) + list(extra_targets or ()))
+      task.execute()
       return output.getvalue()
 
   def execute_console_task(self, config=None, args=None, targets=None, extra_targets=None,

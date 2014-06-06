@@ -15,14 +15,11 @@ from pygments.styles import get_all_styles
 from twitter.common.dirutil import safe_mkdir, safe_open
 
 from pants import binary_util
-from pants.base.address import Address
 from pants.base.address import SyntheticAddress
 from pants.base.build_environment import get_buildroot
 from pants.base.exceptions import TaskError
-from pants.base.target import Target
-from pants.targets.doc import Page
+import pants.targets.doc
 from pants.tasks.task import Task
-
 
 def configure_codehighlight_options(option_group, mkflag):
   all_styles = list(get_all_styles())
@@ -107,7 +104,7 @@ class MarkdownToHtml(Task):
       self.context.log.info('Emitted %s' % css)
 
     def is_page(target):
-      return isinstance(target, Page)
+      return isinstance(target, pants.targets.doc.Page)
 
     roots = set()
     interior_nodes = set()
@@ -156,7 +153,8 @@ class MarkdownToHtml(Task):
 
         for wiki in page.provides:
           def get_config(page):
-            # FIXME(areitz): just take the first provided WikiArtifact
+            # Take the first provided WikiArtifact. If a page is published to multiple places, it's
+            # undefined what the "proper" one is to link to. So we just take whatever is "first".
             for wiki_artifact in page.payload.provides:
               return wiki_artifact.config
           basedir = os.path.join(self.workdir, str(hash(wiki)))
@@ -172,7 +170,6 @@ class MarkdownToHtml(Task):
     def parse_url(spec):
       match = MarkdownToHtml.PANTS_LINK.match(spec)
       if match:
-        #page = Target.get(Address.parse(get_buildroot(), match.group(1)))
         address = SyntheticAddress(match.group(1), relative_to=get_buildroot())
         page = self.context.build_graph.get_target(address)
         anchor = match.group(2) or ''

@@ -4,18 +4,19 @@
 from __future__ import (nested_scopes, generators, division, absolute_import, with_statement,
                         print_function, unicode_literals)
 
+import re
+
 from twitter.common.lang import Compatibility
 
 from pants.base.address import SyntheticAddress
 from pants.base.build_environment import get_buildroot
-from pants.base.payload import ResourcesPayload, SourcesMixin, Payload, hash_sources
+from pants.base.payload import SourcesMixin, Payload, hash_sources
 from pants.base.target import Target
+# To work around the circular imports issue in Python. :(
+import pants.tasks.markdown_to_html
 
 class WikiArtifact(object):
   def __init__(self, wiki, **kwargs):
-    # if not isinstance(wiki, Wiki):
-    #   raise ValueError('The 1st argument must be a wiki target, given: %s' % wiki)
-    #self.wiki = self.get_wiki_dependencies()
     self.wiki = wiki
     self.config = kwargs
 
@@ -82,45 +83,42 @@ class Page(Target):
     if not isinstance(provides[0], WikiArtifact):
       raise ValueError('Page must provide a wiki_artifact. Found instead: %s' % provides)
 
-    #self.provides = provides
-
   @property
   def source(self):
     return list(self.payload.sources)[0]
 
-  # @property
-  # def traversable_specs(self):
-  #   for p in self.provides:
-  #     yield p.wiki
-  #     deps = self.get_wiki_dependencies()
-  #     print("haha")
-  #
-  # def get_wiki_dependencies(self):
-  #   wiki_deps = set()
-  #   def collect_wiki_deps(target):
-  #     print("Walked target %s" % target)
-  #     if isinstance(target, Wiki):
-  #       wiki_deps.update(target)
-  #
-  #   self.walk(work=collect_wiki_deps)
-  #   return wiki_deps
-
+  # This callback needs to yield every 'pants(...)' pointer that we need to have resolved into the
+  # build graph. This includes wiki objects in the provided WikiArtifact objects, and any 'pants()'
+  # pointers inside of the documents themselves (yes, this can happen).
   @property
   def traversable_specs(self):
     if self.payload.provides:
-      for repo in self.payload.provides:
-        yield repo.wiki
+      for wiki_artifact in self.payload.provides:
+        yield wiki_artifact.wiki
 
+    # Parse the entire markdown page, and yield all pants() pointers embedded in wiki links.
+    for source_file in self.payload.sources:
+      file_contents = open(self.payload.sources_rel_path + "/" + source_file).read()
+
+      for link_payload in re.finditer(pants.tasks.markdown_to_html.WIKILINKS_PATTERN, file_contents):
+        pants_spec = pants.tasks.markdown_to_html.MarkdownToHtml.PANTS_LINK.search(link_payload.group(1)).group(1)
+        yield pants_spec
+
+  # This callback is used to link up the provided WikiArtifact objects to Wiki objects. In the build
+  # file, a 'pants(...)' pointer is specified to the Wiki object. In this method, this string
+  # pointer is resolved in the build graph, and an actual Wiki object is swapped in place of the
+  # string.
   @property
   def provides(self):
     if not self.payload.provides:
       return None
 
-    # TODO(pl): This is an awful hack
     for p in self.payload.provides:
       if isinstance(p.wiki, Compatibility.string):
-        # FIXME: this produces a SyntheticTarget, but in the build graph we have a BuildFileAddress obj.
         address = SyntheticAddress(p.wiki, relative_to=self.address.spec_path)
         repo_target = self._build_graph.get_target(address)
         p.wiki = repo_target
+      else:
+        raise ValueError('A WikiArtifact must depend on a string pointer to a Wiki. Found %s instead.'
+                         % p.wiki)
     return self.payload.provides

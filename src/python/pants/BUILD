@@ -35,7 +35,7 @@ python_library(
 
 import urllib
 
-from pants.tasks.confluence_publish import ConfluencePublish
+from pants.backend.core.tasks.confluence_publish import ConfluencePublish
 
 
 def confluence_url_builder(page, config):

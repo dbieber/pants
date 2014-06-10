@@ -67,7 +67,6 @@ page(name='readme',
     wiki_artifact(
       # FIXME(areitz): investigate why '/src/python/pants/BUILD:confluence_wiki' doesn't work
       wiki=pants('src/python/pants:confluence_wiki'),
-      # FIXME: how do these args get into confluence_url_builder()?
       space='~areitz',
       title='test_page',
     ),
@@ -78,11 +77,10 @@ page(name='readme2',
   source='README2.md',
   provides=[
     wiki_artifact(
-     # FIXME(areitz): investigate why '/src/python/pants/BUILD:confluence_wiki' doesn't work
-     wiki=pants('src/python/pants:confluence_wiki'),
-     # FIXME: how do these args get into confluence_url_builder()?
-     space='~areitz',
-     title='test_page2',
+      # FIXME(areitz): investigate why '/src/python/pants/BUILD:confluence_wiki' doesn't work
+      wiki=pants('src/python/pants:confluence_wiki'),
+      space='~areitz',
+      title='test_page2',
     ),
   ],
 )

@@ -70,7 +70,6 @@ def target_aliases():
     'page': Page,
     'resources': Resources,
     'wiki': Wiki,
-    'wiki_artifact': WikiArtifact,
   }
 
 
@@ -87,6 +86,7 @@ def object_aliases():
     'phase': Phase,
     'set_scm': set_scm,
     'Time': Time,
+    'wiki_artifact': WikiArtifact,
   }
 
 

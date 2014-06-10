@@ -79,7 +79,7 @@ class Page(Target):
                                provides=provides)
     super(Page, self).__init__(payload=payload, **kwargs)
 
-    if not isinstance(provides[0], WikiArtifact):
+    if provides and len(provides)>0 and not isinstance(provides[0], WikiArtifact):
       raise ValueError('Page must provide a wiki_artifact. Found instead: %s' % provides)
 
   @property
@@ -113,6 +113,9 @@ class Page(Target):
       return None
 
     for p in self.payload.provides:
+      if isinstance(p.wiki, pants.backend.core.targets.doc.Wiki):
+        # We have already resolved this string into an object, so skip it.
+        continue
       if isinstance(p.wiki, Compatibility.string):
         address = SyntheticAddress(p.wiki, relative_to=self.address.spec_path)
         repo_target = self._build_graph.get_target(address)

@@ -152,15 +152,16 @@ class MarkdownToHtml(Task):
         if self.open and page in roots:
           show.append(html)
 
-        for wiki in page.provides:
-          def get_config(page):
-            # Take the first provided WikiArtifact. If a page is published to multiple places, it's
-            # undefined what the "proper" one is to link to. So we just take whatever is "first".
-            for wiki_artifact in page.payload.provides:
-              return wiki_artifact.config
-          basedir = os.path.join(self.workdir, str(hash(wiki)))
-          process_page((wiki, page), basedir, wiki.wiki.url_builder, get_config,
-                       wikigenmap, fragment=True)
+        if page.provides:
+          for wiki in page.provides:
+            def get_config(page):
+              # Take the first provided WikiArtifact. If a page is published to multiple places, it's
+              # undefined what the "proper" one is to link to. So we just take whatever is "first".
+              for wiki_artifact in page.payload.provides:
+                return wiki_artifact.config
+            basedir = os.path.join(self.workdir, str(hash(wiki)))
+            process_page((wiki, page), basedir, wiki.wiki.url_builder, get_config,
+                         wikigenmap, fragment=True)
 
     if show:
       binary_util.ui_open(*show)

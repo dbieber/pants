@@ -105,7 +105,7 @@ class MarkdownToHtml(Task):
       self.context.log.info('Emitted %s' % css)
 
     def is_page(target):
-      return isinstance(target, pants.targets.doc.Page)
+      return isinstance(target, pants.backend.core.targets.doc.Page)
 
     roots = set()
     interior_nodes = set()

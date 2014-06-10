@@ -19,7 +19,7 @@ from pants import binary_util
 from pants.base.address import SyntheticAddress
 from pants.base.build_environment import get_buildroot
 from pants.base.exceptions import TaskError
-import pants.targets.doc
+import pants.backend.core.targets.doc
 from pants.backend.core.tasks.task import Task
 
 def configure_codehighlight_options(option_group, mkflag):

@@ -13,7 +13,7 @@ from pants.base.build_environment import get_buildroot
 from pants.base.payload import SourcesMixin, Payload, hash_sources
 from pants.base.target import Target
 # To work around the circular imports issue in Python. :(
-import pants.tasks.markdown_to_html
+import pants.backend.core.tasks.markdown_to_html
 
 class WikiArtifact(object):
   def __init__(self, wiki, **kwargs):
@@ -99,8 +99,8 @@ class Page(Target):
     for source_file in self.payload.sources:
       file_contents = open(self.payload.sources_rel_path + "/" + source_file).read()
 
-      for link_payload in re.finditer(pants.tasks.markdown_to_html.WIKILINKS_PATTERN, file_contents):
-        pants_spec = pants.tasks.markdown_to_html.MarkdownToHtml.PANTS_LINK.search(link_payload.group(1)).group(1)
+      for link_payload in re.finditer(pants.backend.core.tasks.markdown_to_html.WIKILINKS_PATTERN, file_contents):
+        pants_spec = pants.backend.core.tasks.markdown_to_html.MarkdownToHtml.PANTS_LINK.search(link_payload.group(1)).group(1)
         yield pants_spec
 
   # This callback is used to link up the provided WikiArtifact objects to Wiki objects. In the build

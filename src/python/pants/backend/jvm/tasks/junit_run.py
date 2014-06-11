@@ -10,9 +10,8 @@ import errno
 import os
 import sys
 
-from twitter.common import log
 from twitter.common.collections import OrderedSet
-from twitter.common.dirutil import safe_mkdir, safe_open
+from twitter.common.dirutil import safe_delete, safe_mkdir, safe_open
 
 from pants import binary_util
 from pants.backend.jvm.targets.java_tests import JavaTests as junit_tests
@@ -467,11 +466,7 @@ class Cobertura(_Coverage):
     super(Cobertura, self).__init__(task_exports, context)
     self._cobertura_bootstrap_key = 'cobertura'
     self._coverage_datafile = os.path.join(self._coverage_dir, 'cobertura.ser')
-    try:
-      os.unlink(self._coverage_datafile)
-    except OSError as e:
-      if e.errno != errno.ENOENT:
-        raise e
+    safe_delete(self._coverage_datafile)
     task_exports.register_jvm_tool(self._cobertura_bootstrap_key,
                                    context.config.getlist('junit-run', 'cobertura-bootstrap-tools',
                                                           default=[':cobertura']))
@@ -482,12 +477,13 @@ class Cobertura(_Coverage):
     classes_by_target = self._context.products.get_data('classes_by_target')
     for target in targets:
       self._context.log.debug('target: %s' % target)
-      classes_by_target_at_target = classes_by_target.get(target)
-      if classes_by_target_at_target:
-        for root, products in classes_by_target_at_target.rel_paths():
+      classes_by_rootdir = classes_by_target.get(target)
+      if classes_by_rootdir:
+        for root, products in classes_by_rootdir.rel_paths():
           self._rootdirs[root].update(products)
     safe_mkdir(self._coverage_instrument_dir, clean=True)
     for basedir, classes in self._rootdirs.items():
+      import pdb; pdb.set_trace()
       args = [
         '--basedir',
         basedir,
@@ -515,6 +511,7 @@ class Cobertura(_Coverage):
     target_sources = set()
     for tgt in targets:
       if tgt.is_java or tgt.is_scala:
+        self._context.log.debug('%s %s %s' % (tgt, tgt.labels, tgt.target_base))
         target_sources.add(os.path.join(get_buildroot(), tgt.target_base))
     self._context.log.debug('sources: %s' % target_sources)
     args = list(target_sources) + [

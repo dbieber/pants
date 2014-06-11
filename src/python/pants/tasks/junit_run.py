@@ -8,6 +8,7 @@ from abc import abstractmethod
 from collections import defaultdict, namedtuple
 import os
 import sys
+import tempfile
 
 from twitter.common.collections import OrderedSet
 from twitter.common.dirutil import safe_delete, safe_mkdir, safe_open
@@ -476,15 +477,19 @@ class Cobertura(_Coverage):
           self._rootdirs[root].update(products)
     safe_mkdir(self._coverage_instrument_dir, clean=True)
     for basedir, classes in self._rootdirs.items():
-      import pdb; pdb.set_trace()
+      # import pdb; pdb.set_trace()
+      fd, tmpfile = tempfile.mkstemp()
+      os.fdopen(fd, 'w').write('\n'.join(classes) + '\n')
       args = [
         '--basedir',
         basedir,
         '--datafile',
         self._coverage_datafile,
+        '--listOfFilesToInstrument',
+        tmpfile,
         ]
-      args.extend(classes)
       main = 'net.sourceforge.cobertura.instrument.InstrumentMain'
+
       result = execute_java(classpath=self._cobertura_classpath,
                             main=main,
                             args=args,

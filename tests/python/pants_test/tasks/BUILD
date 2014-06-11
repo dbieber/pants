@@ -20,8 +20,7 @@ python_test_suite(
   name = 'tasks',
   dependencies = [
     pants(':binary_create'),
-    # XXX(pl): This is broken again
-    # pants(':builddict'),
+    pants(':builddict'),
     pants(':bundle_create'),
     pants(':cache_manager'),
     pants(':check_exclusives'),
@@ -248,6 +247,7 @@ python_tests(
   sources = ['test_jar_publish.py'],
   dependencies = [
     pants('3rdparty/python:mock'),
+    pants('3rdparty/python/twitter/commons:twitter.common.dirutil'),
     pants(':base'),
     pants('src/python/pants/backend/jvm/tasks:jar_publish'),
   ],
@@ -258,7 +258,7 @@ python_tests(
   name = 'jar_publish_integration',
   sources = ['test_jar_publish_integration.py'],
   dependencies = [
-    pants('3rdparty/python:mock'),
+    pants('3rdparty/python/twitter/commons:twitter.common.contextutil'),
     pants('tests/python/pants_test:int-test'),
   ],
 )

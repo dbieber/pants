@@ -489,17 +489,19 @@ class Cobertura(_Coverage):
         tmpfile,
         ]
       main = 'net.sourceforge.cobertura.instrument.InstrumentMain'
-
+      import pdb; pdb.set_trace()
       result = execute_java(classpath=self._cobertura_classpath,
                             main=main,
                             args=args,
                             workunit_factory=self._context.new_workunit,
                             workunit_name='cobertura-instrument')
+      ### safe_delete(tmpfile)
       if result != 0:
         raise TaskError("java %s ... exited non-zero (%i)"
                         " 'failed to instrument'" % (main, result))
 
   def run(self, targets, tests, junit_classpath):
+    import pdb; pdb.set_trace()
     self._run_tests(tests,
                     self._cobertura_classpath + junit_classpath,
                     JUnitRun._MAIN,
@@ -512,6 +514,7 @@ class Cobertura(_Coverage):
         self._context.log.debug('%s %s %s' % (tgt, tgt.labels, tgt.target_base))
         target_sources.add(os.path.join(get_buildroot(), tgt.target_base))
     self._context.log.debug('sources: %s' % target_sources)
+    import pdb; pdb.set_trace()
     args = list(target_sources) + [
       '--datafile',
       self._coverage_datafile,

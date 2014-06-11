@@ -31,6 +31,7 @@ python_test_suite(
     pants(':dependees'),
     pants(':dependencies'),
     pants(':depmap'),
+    pants(':detect_duplicates'),
     pants(':filemap'),
     pants(':filter'),
     pants(':group_task'),
@@ -43,6 +44,7 @@ python_test_suite(
     pants(':roots'),
     pants(':scrooge_gen'),
     pants(':sorttargets'),
+    pants(':targets_help'),
     pants(':what_changed'),
     pants('tests/python/pants_test/tasks/jvm_compile')
   ],
@@ -186,14 +188,15 @@ python_tests(
   ]
 )
 
-# XXX(pl): This test isn't rolled into :all and is broken
 python_tests(
   name = 'detect_duplicates',
   sources = ['test_detect_duplicates.py'],
   dependencies = [
     pants(':base'),
     pants('3rdparty/python/twitter/commons:twitter.common.dirutil'),
+    pants('src/python/pants/base:exceptions'),
     pants('src/python/pants/backend/jvm/tasks:detect_duplicates'),
+    pants('tests/python/pants_test/base:context_utils'),
   ],
 )
 
@@ -329,7 +332,6 @@ python_tests(
   ],
 )
 
-# XXX(pl): Test is broken and not in :all
 python_tests(
   name = 'targets_help',
   sources = ['test_targets_help.py'],

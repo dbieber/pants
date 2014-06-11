@@ -161,6 +161,12 @@ class JarCreate(JarTask):
       target_classes = classes_by_target.get(target)
 
       target_resources = []
+
+      # TODO(pl): https://github.com/pantsbuild/pants/issues/206
+      resource_products_on_target = resources_by_target.get(target)
+      if resource_products_on_target:
+        target_resources.append(resource_products_on_target)
+
       if target.has_resources:
         target_resources.extend(resources_by_target.get(r) for r in target.resources)
 

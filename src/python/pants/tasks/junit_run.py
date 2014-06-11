@@ -5,9 +5,8 @@ from __future__ import (nested_scopes, generators, division, absolute_import, wi
                         print_function, unicode_literals)
 
 from abc import abstractmethod
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 import os
-import re
 import sys
 
 from twitter.common.collections import OrderedSet
@@ -20,7 +19,6 @@ from pants.java.util import execute_java
 from pants.targets.java_tests import JavaTests as junit_tests
 from pants.tasks import TaskError
 from pants.tasks.jvm_task import JvmTask
-from pants.tasks.jvm_tool_bootstrapper import JvmToolBootstrapper
 
 # TODO(ji): Add unit tests.
 # TODO(ji): Add coverage in ci.run (https://github.com/pantsbuild/pants/issues/83)
@@ -386,8 +384,8 @@ class Emma(_Coverage):
                                                     default=[':emma']))
 
   def instrument(self, targets, tests, junit_classpath):
+    self._emma_classpath = self._task_exports.tool_classpath(self._emma_bootstrap_key)
     safe_mkdir(self._coverage_instrument_dir, clean=True)
-    emma_classpath = self._task_exports.tool_classpath(self._emma_bootstrap_key)
     with binary_util.safe_args(self.get_coverage_patterns(targets)) as patterns:
       args = [
         'instr',
@@ -399,7 +397,7 @@ class Emma(_Coverage):
       for pattern in patterns:
         args.extend(['-filter', pattern])
       main = 'emma'
-      result = execute_java(classpath=emma_classpath, main=main, args=args,
+      result = execute_java(classpath=self._emma_classpath, main=main, args=args,
                             workunit_factory=self._context.new_workunit,
                             workunit_name='emma-instrument')
       if result != 0:
@@ -407,13 +405,12 @@ class Emma(_Coverage):
                         " 'failed to instrument'" % (main, result))
 
   def run(self, targets, tests, junit_classpath):
-    emma_classpath = self._task_exports.tool_classpath(self._emma_bootstrap_key)
-    self._run_tests(tests, [self._coverage_instrument_dir] + junit_classpath + emma_classpath,
+    self._run_tests(tests,
+                    [self._coverage_instrument_dir] + junit_classpath + self._emma_classpath,
                     JUnitRun._MAIN,
                     jvm_args=['-Demma.coverage.out.file=%s' % self._coverage_file])
 
   def report(self, targets, tests, junit_classpath):
-    emma_classpath = self._task_exports.tool_classpath(self._emma_bootstrap_key)
     args = [
       'report',
       '-in', self._coverage_metadata_file,
@@ -441,7 +438,7 @@ class Emma(_Coverage):
                    '-Dreport.out.encoding=UTF-8'] + sorting)
 
     main = 'emma'
-    result = execute_java(classpath=emma_classpath, main=main, args=args,
+    result = execute_java(classpath=self._emma_classpath, main=main, args=args,
                           workunit_factory=self._context.new_workunit,
                           workunit_name='emma-report')
     if result != 0:
@@ -529,7 +526,7 @@ class Cobertura(_Coverage):
                       " 'failed to report'" % (main, result))
 
 
-class JUnitRun(JvmTask, JvmToolTaskMixin):
+class JUnitRun(JvmTask):
   _MAIN = 'com.twitter.common.junit.runner.ConsoleRunner'
 
   @classmethod
@@ -565,6 +562,8 @@ class JUnitRun(JvmTask, JvmToolTaskMixin):
     if options.junit_run_coverage or options.junit_run_coverage_html_open:
       if options.junit_coverage_processor == 'emma':
         self._runner = Emma(task_exports, self._context)
+      elif options.junit_coverage_processor == 'cobertura':
+        self._runner = Cobertura(task_exports, self._context)
       else:
         raise TaskError('unknown coverage processor %s' % context.options.junit_coverage_processor)
     else:

@@ -10,7 +10,8 @@ import os
 import re
 import sys
 
-from twitter.common.dirutil import safe_mkdir, safe_open
+from twitter.common.collections import OrderedSet
+from twitter.common.dirutil import safe_delete, safe_mkdir, safe_open
 
 from pants import binary_util
 from pants.base.build_environment import get_buildroot
@@ -454,7 +455,81 @@ class Emma(_Coverage):
       binary_util.ui_open(self._coverage_html_file)
 
 
-class JUnitRun(JvmTask):
+class Cobertura(_Coverage):
+  """Class to run coverage tests with cobertura."""
+
+  def __init__(self, task_exports, context):
+    super(Cobertura, self).__init__(task_exports, context)
+    self._cobertura_bootstrap_key = 'cobertura'
+    self._coverage_datafile = os.path.join(self._coverage_dir, 'cobertura.ser')
+    safe_delete(self._coverage_datafile)
+    task_exports.register_jvm_tool(self._cobertura_bootstrap_key,
+                                   context.config.getlist('junit-run', 'cobertura-bootstrap-tools',
+                                                          default=[':cobertura']))
+    self._rootdirs = defaultdict(OrderedSet)
+
+  def instrument(self, targets, tests, junit_classpath):
+    self._cobertura_classpath = self._task_exports.tool_classpath(self._cobertura_bootstrap_key)
+    classes_by_target = self._context.products.get_data('classes_by_target')
+    for target in targets:
+      self._context.log.debug('target: %s' % target)
+      classes_by_rootdir = classes_by_target.get(target)
+      if classes_by_rootdir:
+        for root, products in classes_by_rootdir.rel_paths():
+          self._rootdirs[root].update(products)
+    safe_mkdir(self._coverage_instrument_dir, clean=True)
+    for basedir, classes in self._rootdirs.items():
+      import pdb; pdb.set_trace()
+      args = [
+        '--basedir',
+        basedir,
+        '--datafile',
+        self._coverage_datafile,
+        ]
+      args.extend(classes)
+      main = 'net.sourceforge.cobertura.instrument.InstrumentMain'
+      result = execute_java(classpath=self._cobertura_classpath,
+                            main=main,
+                            args=args,
+                            workunit_factory=self._context.new_workunit,
+                            workunit_name='cobertura-instrument')
+      if result != 0:
+        raise TaskError("java %s ... exited non-zero (%i)"
+                        " 'failed to instrument'" % (main, result))
+
+  def run(self, targets, tests, junit_classpath):
+    self._run_tests(tests,
+                    self._cobertura_classpath + junit_classpath,
+                    JUnitRun._MAIN,
+                    jvm_args=['-Dnet.sourceforge.cobertura.datafile=' + self._coverage_datafile])
+
+  def report(self, targets, tests, junit_classpath):
+    target_sources = set()
+    for tgt in targets:
+      if tgt.is_java or tgt.is_scala:
+        self._context.log.debug('%s %s %s' % (tgt, tgt.labels, tgt.target_base))
+        target_sources.add(os.path.join(get_buildroot(), tgt.target_base))
+    self._context.log.debug('sources: %s' % target_sources)
+    args = list(target_sources) + [
+      '--datafile',
+      self._coverage_datafile,
+      '--destination',
+      self._coverage_dir,
+      '--format',
+      'xml' if self._coverage_report_xml else 'html',
+      ]
+    main = 'net.sourceforge.cobertura.reporting.ReportMain'
+    result = execute_java(classpath=self._cobertura_classpath,
+                          main=main,
+                          args=args,
+                          workunit_factory=self._context.new_workunit,
+                          workunit_name='cobertura-report')
+    if result != 0:
+      raise TaskError("java %s ... exited non-zero (%i)"
+                      " 'failed to report'" % (main, result))
+
+
+class JUnitRun(JvmTask, JvmToolTaskMixin):
   _MAIN = 'com.twitter.common.junit.runner.ConsoleRunner'
 
   @classmethod

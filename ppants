@@ -1,0 +1,27 @@
+export PANTS_DEV=1
+exec ./pants goal test \
+  --no-pantsrc \
+  --no-compile-apt-warnings \
+  --no-compile-java-warnings \
+  --no-compile-scala-warnings \
+  --test-junit-jvmargs='-DMVN_CI=1' \
+  --test-junit-jvmargs='-DCI_RUN=1' \
+  --test-junit-jvmargs='-DSBT_CI=1' \
+  --test-junit-jvmargs='-DSKIP_FLAKY=1' \
+  --test-junit-xmlreport \
+  --test-junit-parallel-threads=1
+  --test-junit-fail-fast \
+  --test-junit-coverage-processor=cobertura \
+  --test-junit-coverage \
+  --no-test-junit-coverage-breakpoints-XXX \
+  --no-test-junit-coverage-run-instrument-XXX \
+  --no-test-junit-coverage-instrument-use-file-XXX \
+  --no-test-junit-coverage-run-run-XXX \
+  --no-test-junit-coverage-run-report-XXX \
+  \
+  tests/java:: \
+  tests/scala::
+  -ldebug
+
+
+ app-proxy/server/BUILD:tests

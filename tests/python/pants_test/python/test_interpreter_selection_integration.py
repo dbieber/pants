@@ -48,7 +48,11 @@ class InterpreterSelectionIntegrationTest(PantsRunIntegrationTest):
       binary_name = 'echo_interpreter_version_%s' % version
       binary_target = 'tests/python/pants_test/python:' + binary_name
       # Build a pex.
-      with self.run_pants(command=['goal', 'binary', binary_target], config=config):
+      # Avoid some known-to-choke-on interpreters.
+      command = ['goal', 'binary', binary_target,
+                 '--interpreter=CPython>=2.6,<3',
+                 '--interpreter=CPython>=3.3']
+      with self.run_pants(command=command, config=config):
         # Run the built pex.
         exe = os.path.join(distdir, binary_name + '.pex')
         proc = subprocess.Popen([exe], stdout=subprocess.PIPE)

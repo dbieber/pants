@@ -5,6 +5,7 @@ from __future__ import (nested_scopes, generators, division, absolute_import, wi
                         print_function, unicode_literals)
 
 import os
+import pytest
 import shlex
 
 from twitter.common.contextutil import environment_as

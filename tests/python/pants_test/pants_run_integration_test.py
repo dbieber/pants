@@ -52,6 +52,5 @@ class PantsRunIntegrationTest(unittest.TestCase):
       env = os.environ.copy()
       env['PANTS_CONFIG_OVERRIDE'] = ini_file_name
       pants_command = [os.path.join(get_buildroot(), self.PANTS_SCRIPT_NAME)] + command + ['--no-lock']
-      print('RUNNING %s' % ' '.join(pants_command))
       result = subprocess.call(pants_command, env=env, **kwargs)
       yield result

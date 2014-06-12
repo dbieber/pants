@@ -14,21 +14,17 @@ class PythonTask(Task):
   def setup_parser(cls, option_group, args, mkflag):
     option_group.add_option(mkflag('timeout'), dest='python_conn_timeout', type='int',
                             default=0, help='Number of seconds to wait for http connections.')
-    option_group.add_option(mkflag('interpreter'), dest='python_interpreters', default=[],
-                            action='append',
-                            help="Constrain what Python interpreters to use.  Uses Requirement "
-                                 "format from pkg_resources, e.g. 'CPython>=2.6,<3' or 'PyPy'. "
-                                 "By default, no constraints are used.  Multiple constraints may "
-                                 "be added.  They will be ORed together.")
 
   def __init__(self, context, workdir):
     super(PythonTask, self).__init__(context, workdir)
     self.conn_timeout = (self.context.options.python_conn_timeout or
                          self.context.config.getdefault('connection_timeout'))
-    compatibilities = self.context.options.python_interpreters or [b'']
+    compatibilities = self.context.options.interpreter or [b'']
 
     self.interpreter_cache = PythonInterpreterCache(self.context.config,
                                                     logger=self.context.log.debug)
+    # We pass in filters=compatibilities because setting up some python versions
+    # (e.g., 3<=python<3.3) crashes, and this gives us an escape hatch.
     self.interpreter_cache.setup(filters=compatibilities)
 
     # Select a default interpreter to use.

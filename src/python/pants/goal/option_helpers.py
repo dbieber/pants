@@ -31,6 +31,10 @@ GLOBAL_OPTIONS = [
          default='info', help='[%default] Set the logging level [debug, info, warn].'),
   Option('-q', '--quiet', action='store_true', dest='quiet', default=False,
          help='Squelches all console output apart from errors.'),
+  Option('-i', '--interpreter', dest='interpreter', default=[], action='append',
+         help="Constrain what Python interpreters to use.  Uses Requirement format from "
+              "pkg_resources, e.g. 'CPython>=2.6,<3' or 'PyPy'. By default, no constraints "
+              "are used.  Multiple constraints may be added.  They will be ORed together."),
   Option('--no-colors', dest='no_color', action='store_true', default=False,
          help='Do not colorize log messages.'),
   Option('--no-lock', dest='no_lock', action='store_true', default=False,
